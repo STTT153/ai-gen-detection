@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import sys
+import threading
 from pathlib import Path
 
 import anthropic
@@ -22,14 +23,14 @@ from torchvision import transforms
 from torchvision.transforms.functional import normalize
 
 ROOT = Path(__file__).resolve().parent.parent
-AI_DETECTION_DIR = ROOT / "AI_Detection"
+AI_DETECTION_DIR = ROOT / "model"
 CHECKPOINT_PATH = Path(
-    os.environ.get("SWINSEG_CKPT", AI_DETECTION_DIR / "Mask_Model" / "best_seg.pth")
+    os.environ.get("SWINSEG_CKPT", AI_DETECTION_DIR / "checkpoints" / "best_seg_ft.pth")
 )
 CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
 
 sys.path.insert(0, str(AI_DETECTION_DIR))
-from mask_train_model import SwinSeg  # noqa: E402
+from v4_train import SwinSeg  # noqa: E402
 import llm  # noqa: E402
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -75,6 +76,9 @@ def mask_key(key: str) -> str:
 
 
 def load_model():
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
     model = SwinSeg()
     checkpoint_loaded = False
     if CHECKPOINT_PATH.exists():
@@ -89,11 +93,12 @@ def load_model():
 
 
 MODEL, HAS_CHECKPOINT = load_model()
+_model_lock = threading.Lock()
 
 
 def preprocess(pil_img: Image.Image):
     img_rgb = np.array(pil_img.convert("RGB"))
-    img_rgb = cv2.resize(img_rgb, (224, 224))
+    img_rgb = cv2.resize(img_rgb, (512, 512))
 
     gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
     dct = cv2.dct(np.float32(gray))
@@ -110,9 +115,10 @@ def preprocess(pil_img: Image.Image):
 
 @torch.no_grad()
 def infer(x: torch.Tensor) -> np.ndarray:
-    x = x.to(DEVICE)
-    logits = MODEL(x)
-    return torch.sigmoid(logits).squeeze().cpu().numpy()
+    with _model_lock:
+        x = x.to(DEVICE)
+        logits = MODEL(x)
+        return torch.sigmoid(logits).squeeze().cpu().numpy()
 
 
 def render_visuals(img_rgb: np.ndarray, prob: np.ndarray):
@@ -241,4 +247,4 @@ def too_large(_):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
