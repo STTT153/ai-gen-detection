@@ -1,0 +1,14 @@
+# agent
+.claude/
+CLAUDE.md
+
+# logs
+train.log
+
+# system
+.DS_Store
+
+# python
+venv/
+.venv/
+__pycache__/

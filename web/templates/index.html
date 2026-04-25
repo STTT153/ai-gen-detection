@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Forgery Localization</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --panel-2: #1d2129;
+      --border: #262a33;
+      --text: #e7e9ee;
+      --muted: #8a93a6;
+      --accent: #5b9dff;
+      --warn: #f4b24a;
+      --warn-bg: #3a2a10;
+      --ok: #7ad48a;
+      --ok-bg: #15301b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      padding: 28px 32px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
+    header p { margin: 0; color: var(--muted); font-size: 13px; }
+    main { max-width: 1100px; margin: 0 auto; padding: 28px 24px 64px; }
+
+    .banner {
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      border: 1px solid;
+    }
+    .banner.warn { background: var(--warn-bg); color: var(--warn); border-color: #5a3d18; }
+    .banner.error { background: #3a1519; color: #ff8a95; border-color: #5a1f26; }
+    .banner.ok { background: var(--ok-bg); color: var(--ok); border-color: #235c33; }
+
+    details.settings {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    details.settings > summary {
+      cursor: pointer;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    details.settings > summary::-webkit-details-marker { display: none; }
+    details.settings > summary::after {
+      content: "▸";
+      transition: transform 0.15s;
+      color: var(--muted);
+    }
+    details.settings[open] > summary::after { transform: rotate(90deg); }
+    .settings-body {
+      padding: 4px 16px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .settings-status {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+    .settings-status.set { color: var(--ok); }
+    .field { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+    .field label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    .field input[type=text], .field input[type=password] {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 5px;
+      font-size: 13px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+    }
+    .field input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+    .settings-hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .settings-actions { margin-top: 14px; display: flex; gap: 10px; align-items: center; }
+    .btn-secondary {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { color: var(--text); border-color: var(--text); }
+
+    form.upload {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px;
+    }
+    form.upload input[type=file] {
+      flex: 1;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    button {
+      background: var(--accent);
+      color: #0b1220;
+      border: 0;
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button:hover { filter: brightness(1.08); }
+
+    .result { margin-top: 28px; }
+    .metrics {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .metrics b { color: var(--text); font-weight: 600; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .card h3 {
+      margin: 0;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .card img { display: block; width: 100%; height: auto; }
+
+    .explanation {
+      margin-top: 20px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 18px;
+    }
+    .explanation h3 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .explanation .body { white-space: pre-wrap; font-size: 14px; color: var(--text); }
+    .explanation .err { color: #ff8a95; font-size: 13px; white-space: pre-wrap; }
+    .explanation .hint { color: var(--muted); font-size: 13px; }
+
+    @media (max-width: 720px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AI Forgery Localization</h1>
+    <p>Upload an image; SwinSeg highlights regions it believes are AI-generated. Optionally, an LLM describes what it sees.</p>
+  </header>
+  <main>
+    {% if not has_checkpoint %}
+    <div class="banner warn">
+      No trained checkpoint found. Results will be meaningless until
+      <code>AI_Detection/Mask_Model/best_seg.pth</code> exists.
+    </div>
+    {% endif %}
+
+    {% if settings_saved %}
+    <div class="banner ok">Settings saved.</div>
+    {% endif %}
+
+    {% if error %}
+    <div class="banner error">{{ error }}</div>
+    {% endif %}
+
+    <details class="settings" {% if not settings.api_key_set %}open{% endif %}>
+      <summary>
+        <span>LLM settings
+          <span class="settings-status {% if settings.api_key_set %}set{% endif %}">
+            {% if settings.api_key_set %}· key {{ settings.api_key_masked }} · {{ settings.model }}{% else %}· not configured{% endif %}
+          </span>
+        </span>
+      </summary>
+      <div class="settings-body">
+        <form method="POST" action="{{ url_for('update_settings') }}">
+          <div class="field">
+            <label for="api_key">API key</label>
+            <input type="password" name="api_key" id="api_key" autocomplete="off"
+                   placeholder="{% if settings.api_key_set %}leave blank to keep {{ settings.api_key_masked }}{% else %}sk-…{% endif %}" />
+            <div class="settings-hint">Stored locally in <code>web/config.json</code> (gitignored). Blank = keep existing.</div>
+          </div>
+          <div class="field">
+            <label for="base_url">Base URL</label>
+            <input type="text" name="base_url" id="base_url" value="{{ settings.base_url }}" />
+          </div>
+          <div class="field">
+            <label for="model">Model</label>
+            <input type="text" name="model" id="model" value="{{ settings.model }}" />
+            <div class="settings-hint">Whatever the endpoint accepts (e.g. <code>claude-sonnet-4-5</code>, <code>qwen3-coder-plus</code>).</div>
+          </div>
+          <div class="settings-actions">
+            <button type="submit">Save settings</button>
+            {% if settings.api_key_set %}
+            <button type="submit" name="clear_key" value="1" class="btn-secondary">Clear key</button>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </details>
+
+    <form class="upload" method="POST" enctype="multipart/form-data">
+      <input type="file" name="image" accept="image/*" required />
+      <button type="submit">Analyze</button>
+    </form>
+
+    {% if result %}
+    <div class="result">
+      <div class="metrics">
+        <span>Max score: <b>{{ "%.3f"|format(result.max_score) }}</b></span>
+        <span>Mean score: <b>{{ "%.3f"|format(result.mean_score) }}</b></span>
+        <span>Forged area (thr 0.5): <b>{{ "%.1f%%"|format(result.forged_ratio * 100) }}</b></span>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <h3>Original (224×224)</h3>
+          <img src="data:image/png;base64,{{ result.original }}" alt="original" />
+        </div>
+        <div class="card">
+          <h3>Heatmap</h3>
+          <img src="data:image/png;base64,{{ result.heatmap }}" alt="heatmap" />
+        </div>
+        <div class="card">
+          <h3>Overlay</h3>
+          <img src="data:image/png;base64,{{ result.overlay }}" alt="overlay" />
+        </div>
+      </div>
+
+      <div class="explanation">
+        <h3>AI explanation</h3>
+        {% if explanation %}
+          <div class="body">{{ explanation }}</div>
+        {% elif explanation_error %}
+          <div class="err">{{ explanation_error }}</div>
+        {% elif not settings.api_key_set %}
+          <div class="hint">Configure an API key in LLM settings above to enable.</div>
+        {% else %}
+          <div class="hint">No response.</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </main>
+</body>
+</html>
