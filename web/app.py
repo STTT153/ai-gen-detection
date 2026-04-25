@@ -25,7 +25,7 @@ from torchvision.transforms.functional import normalize
 ROOT = Path(__file__).resolve().parent.parent
 AI_DETECTION_DIR = ROOT / "model"
 CHECKPOINT_PATH = Path(
-    os.environ.get("SWINSEG_CKPT", AI_DETECTION_DIR / "checkpoints" / "best_seg_ft.pth")
+    os.environ.get("SWINSEG_CKPT", AI_DETECTION_DIR / "checkpoints" / "best_seg.pth")
 )
 CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
 

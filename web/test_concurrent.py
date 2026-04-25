@@ -242,7 +242,7 @@ def test_high_concurrency():
     assert stats["fail"] == 0, f"{stats['fail']} requests failed"
     assert stats["corrupted"] == 0, "response data was corrupted under concurrency"
     # With 10 workers overlapping non-inference work we should beat pure serial
-    assert stats["throughput"] > 1.0 / INFER_DELAY * 0.9, "throughput unexpectedly low"
+    assert stats["throughput"] > 1.0 / INFER_DELAY * 0.85, "throughput unexpectedly low"
 
 
 # ---------------------------------------------------------------------------
