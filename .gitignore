@@ -1,13 +1,41 @@
-# System related
-__pycache__
+# System
+__pycache__/
+*.py[cod]
 .DS_Store
+*.egg-info/
+dist/
+build/
 
-# Python envirnment
-venv
-.venv
+# Python environments
+venv/
+.venv/
+*.venv
 
 # Agent
-CLAUDE.md 
+CLAUDE.md
 .CLAUDE
 
+# Environment / secrets
+.env
+*.env
+web/config.json
+
+# Logs
+*.log
+server.log
+
+# Data pipeline outputs (large generated files)
+data/random-ai-substitution/output/
+data/random-ai-substitution/img/
+data/random-ai-substitution/models/
+data/person_background_cutmix/cutout_tool/output/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model checkpoints (tracked via submodule; exclude root-level copies)
+*.pth
+*.pt
+*.ckpt
+!model/checkpoints/best_seg_ft.pth
 

@@ -33,7 +33,12 @@ sys.path.insert(0, str(AI_DETECTION_DIR))
 from v4_train import SwinSeg  # noqa: E402
 import llm  # noqa: E402
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if torch.cuda.is_available():
+    DEVICE = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    DEVICE = torch.device("mps")
+else:
+    DEVICE = torch.device("cpu")
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/bmp"}
 
@@ -76,8 +81,9 @@ def mask_key(key: str) -> str:
 
 
 def load_model():
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    if DEVICE.type == "cuda":
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
     torch.use_deterministic_algorithms(True, warn_only=True)
     model = SwinSeg()
     checkpoint_loaded = False
@@ -243,6 +249,16 @@ def too_large(_):
     return render_template("index.html", **_view_ctx(
         cfg, error=f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB).",
     )), 413
+
+
+@app.route("/health")
+def health():
+    from flask import jsonify
+    return jsonify({
+        "status": "ok",
+        "device": str(DEVICE),
+        "checkpoint": HAS_CHECKPOINT,
+    })
 
 
 if __name__ == "__main__":

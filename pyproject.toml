@@ -1,0 +1,6 @@
+[tool.pytest.ini_options]
+testpaths = ["web"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+# -s keeps server stdout visible; -v shows individual test names
+addopts = "-v -s"
