@@ -1,0 +1,22 @@
+# Core dependencies
+numpy>=1.24.0
+pillow>=9.0.0
+
+# OpenCV for edge detection
+opencv-python>=4.8.0
+
+# PyTorch (install CUDA version separately if needed)
+# torch>=2.0.0
+# torchvision>=0.15.0
+
+# Hugging Face Diffusers for Stable Diffusion
+diffusers>=0.24.0
+
+# Transformers (required by diffusers)
+transformers>=4.30.0
+
+# Accelerate for model loading
+accelerate>=0.20.0
+
+# Optional: for faster inference
+# xformers>=0.0.20  # Uncomment if using NVIDIA GPU

@@ -1,14 +1,13 @@
-# agent
-.claude/
-CLAUDE.md
-
-# logs
-train.log
-
-# system
+# System related
+__pycache__
 .DS_Store
 
-# python
-venv/
-.venv/
-__pycache__/
+# Python envirnment
+venv
+.venv
+
+# Agent
+CLAUDE.md 
+.CLAUDE
+
+
