@@ -45,7 +45,7 @@ The dataset covers six forgery categories to capture the full range of ways an a
 | **Random AI** | Randomly selected patches replaced with AI content |
 | **Specific AI** | Semantically meaningful area (face, hands, clothing) replaced with AI content |
 
-**Data format:** 512×512 PNG images paired with `.npy` mask files (`1` = AI-generated, `2` = real).
+**Data format:** 512×512 PNG images paired with `.npy` mask files (`1` = AI-generated, `0` = real).
 
 Generation tools are in [data/](data/). The `inpaint_pipeline.py` approach was abandoned; see [data/README.md](data/README.md) for details.
 

@@ -253,7 +253,7 @@
       </div>
       <div class="grid">
         <div class="card">
-          <h3>Original (224×224)</h3>
+          <h3>Original (512×512)</h3>
           <img src="data:image/png;base64,{{ result.original }}" alt="original" />
         </div>
         <div class="card">
@@ -266,20 +266,52 @@
         </div>
       </div>
 
-      <div class="explanation">
-        <h3>AI explanation</h3>
-        {% if explanation %}
-          <div class="body">{{ explanation }}</div>
-        {% elif explanation_error %}
-          <div class="err">{{ explanation_error }}</div>
-        {% elif not settings.api_key_set %}
-          <div class="hint">Configure an API key in LLM settings above to enable.</div>
+      <div class="explanation" id="explanation-panel">
+        <h3>AI Explanation</h3>
+        {% if settings.api_key_set %}
+        <button id="explain-btn" onclick="generateExplanation('{{ result_id }}')">Generate Explanation</button>
         {% else %}
-          <div class="hint">No response.</div>
+        <div class="hint">Configure an API key in LLM settings above to enable.</div>
         {% endif %}
+        <div id="explanation-content" style="margin-top:12px"></div>
       </div>
     </div>
     {% endif %}
+
+  <script>
+    async function generateExplanation(resultId) {
+      const btn = document.getElementById('explain-btn');
+      const content = document.getElementById('explanation-content');
+      btn.disabled = true;
+      btn.textContent = 'Generating…';
+      content.innerHTML = '<div class="hint">Calling vision model, please wait…</div>';
+      try {
+        const resp = await fetch('/explain', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({result_id: resultId})
+        });
+        const data = await resp.json();
+        if (data.explanation) {
+          let html = '';
+          if (data.style_warning) {
+            html += `<div class="banner warn" style="margin-bottom:12px">⚠ Style mismatch — prediction may be unreliable: ${data.style_warning}</div>`;
+          }
+          html += `<div class="body">${data.explanation}</div>`;
+          content.innerHTML = html;
+          btn.style.display = 'none';
+        } else {
+          content.innerHTML = `<div class="err">${data.error || 'Unknown error'}</div>`;
+          btn.disabled = false;
+          btn.textContent = 'Retry';
+        }
+      } catch (e) {
+        content.innerHTML = `<div class="err">Request failed: ${e.message}</div>`;
+        btn.disabled = false;
+        btn.textContent = 'Retry';
+      }
+    }
+  </script>
   </main>
 </body>
 </html>

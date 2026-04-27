@@ -11,9 +11,10 @@ import logging
 import os
 import sys
 import threading
+import uuid
+from collections import OrderedDict
 from pathlib import Path
 
-import anthropic
 import cv2
 import numpy as np
 import torch
@@ -44,8 +45,8 @@ ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/bmp"}
 
 DEFAULT_CONFIG = {
     "api_key": "",
-    "base_url": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
-    "model": "qwen3-coder-plus",
+    "base_url": "https://www.fucheers.top",
+    "model": "claude-sonnet-4-6",
 }
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -101,6 +102,17 @@ def load_model():
 MODEL, HAS_CHECKPOINT = load_model()
 _model_lock = threading.Lock()
 
+_result_cache: OrderedDict[str, dict] = OrderedDict()
+_CACHE_MAX = 10
+
+
+def _cache_put(data: dict) -> str:
+    rid = str(uuid.uuid4())
+    _result_cache[rid] = data
+    if len(_result_cache) > _CACHE_MAX:
+        _result_cache.popitem(last=False)
+    return rid
+
 
 def preprocess(pil_img: Image.Image):
     img_rgb = np.array(pil_img.convert("RGB"))
@@ -141,6 +153,8 @@ def render_visuals(img_rgb: np.ndarray, prob: np.ndarray):
         "original": _png_b64(img_rgb),
         "heatmap": _png_b64(heatmap_rgb),
         "overlay": _png_b64(overlay),
+        "orig_jpeg": _jpeg_b64(img_rgb),
+        "overlay_jpeg": _jpeg_b64(overlay),
         "forged_ratio": forged_ratio,
         "max_score": float(prob.max()),
         "mean_score": float(prob.mean()),
@@ -150,6 +164,12 @@ def render_visuals(img_rgb: np.ndarray, prob: np.ndarray):
 def _png_b64(rgb: np.ndarray) -> str:
     buf = io.BytesIO()
     Image.fromarray(rgb).save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def _jpeg_b64(rgb: np.ndarray, quality: int = 75) -> str:
+    buf = io.BytesIO()
+    Image.fromarray(rgb).save(buf, format="JPEG", quality=quality)
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
@@ -164,9 +184,8 @@ def _view_ctx(cfg: dict, **kw):
             "model": cfg.get("model", ""),
         },
         "result": None,
+        "result_id": None,
         "error": None,
-        "explanation": None,
-        "explanation_error": None,
         "settings_saved": False,
         **kw,
     }
@@ -196,28 +215,42 @@ def index():
     prob = infer(x)
     result = render_visuals(img_rgb, prob)
 
-    explanation, explanation_error = None, None
-    if cfg.get("api_key"):
-        try:
-            explanation = llm.explain(
-                api_key=cfg["api_key"],
-                base_url=cfg["base_url"],
-                model=cfg["model"],
-                prob=prob,
-                max_score=result["max_score"],
-                mean_score=result["mean_score"],
-                forged_ratio=result["forged_ratio"],
-            )
-        except anthropic.APIError as e:
-            log.exception("LLM call failed")
-            explanation_error = f"{type(e).__name__}: {e}"
-        except Exception as e:
-            log.exception("LLM call failed")
-            explanation_error = f"{type(e).__name__}: {e}"
+    result_id = _cache_put({
+        "mean_score": result["mean_score"],
+        "forged_ratio": result["forged_ratio"],
+        "orig_b64": result["orig_jpeg"],
+        "overlay_b64": result["overlay_jpeg"],
+    })
 
-    return render_template("index.html", **_view_ctx(
-        cfg, result=result, explanation=explanation, explanation_error=explanation_error,
-    ))
+    return render_template("index.html", **_view_ctx(cfg, result=result, result_id=result_id))
+
+
+@app.route("/explain", methods=["POST"])
+def explain_route():
+    from flask import jsonify
+    cfg = load_config()
+    if not cfg.get("api_key"):
+        return jsonify({"error": "API key not configured"}), 400
+
+    data = request.get_json(silent=True) or {}
+    cached = _result_cache.get(data.get("result_id"))
+    if not cached:
+        return jsonify({"error": "Result expired, please re-upload the image"}), 404
+
+    try:
+        explanation, style_warning = llm.explain(
+            api_key=cfg["api_key"],
+            base_url=cfg["base_url"],
+            model=cfg["model"],
+            mean_score=cached["mean_score"],
+            forged_ratio=cached["forged_ratio"],
+            orig_b64=cached["orig_b64"],
+            overlay_b64=cached["overlay_b64"],
+        )
+        return jsonify({"explanation": explanation, "style_warning": style_warning})
+    except Exception as e:
+        log.exception("LLM call failed")
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
 
 
 @app.route("/settings", methods=["POST"])
