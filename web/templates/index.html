@@ -3,315 +3,1078 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AI Forgery Localization</title>
+  <title>Pixy — A tiny digital spirit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0f1115;
-      --panel: #171a21;
-      --panel-2: #1d2129;
-      --border: #262a33;
-      --text: #e7e9ee;
-      --muted: #8a93a6;
-      --accent: #5b9dff;
-      --warn: #f4b24a;
-      --warn-bg: #3a2a10;
-      --ok: #7ad48a;
-      --ok-bg: #15301b;
+      --bg: #080c14;
+      --panel: rgba(255,255,255,0.04);
+      --panel-solid: #0f1520;
+      --border: rgba(255,255,255,0.08);
+      --border-hover: rgba(255,255,255,0.14);
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --muted-lg: #94a3b8;
+      --accent: #00d4ff;
+      --purple: #8b5cf6;
+      --grad: linear-gradient(135deg, #00d4ff 0%, #8b5cf6 100%);
+      --warn: #f59e0b;
+      --warn-bg: rgba(245,158,11,0.1);
+      --err: #ef4444;
+      --err-bg: rgba(239,68,68,0.1);
+      --ok: #10b981;
+      --ok-bg: rgba(16,185,129,0.1);
+      --r: 12px;
+      --r-sm: 8px;
     }
-    * { box-sizing: border-box; }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'Inter', -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.5;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
     }
-    header {
-      padding: 28px 32px 12px;
-      border-bottom: 1px solid var(--border);
-    }
-    header h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
-    header p { margin: 0; color: var(--muted); font-size: 13px; }
-    main { max-width: 1100px; margin: 0 auto; padding: 28px 24px 64px; }
 
+    /* ── Background ─────────────────────────────────────── */
+    .bg-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .bg-grid {
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      position: absolute;
+      inset: 0;
+    }
+    .bg-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+    }
+    .bg-orb-1 {
+      width: 600px; height: 600px;
+      top: -200px; left: -100px;
+      background: radial-gradient(circle, rgba(0,212,255,0.12), transparent 70%);
+      animation: drift 20s ease-in-out infinite alternate;
+    }
+    .bg-orb-2 {
+      width: 500px; height: 500px;
+      bottom: -150px; right: -100px;
+      background: radial-gradient(circle, rgba(139,92,246,0.12), transparent 70%);
+      animation: drift 16s ease-in-out infinite alternate-reverse;
+    }
+    @keyframes drift {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(30px, 20px) scale(1.05); }
+    }
+
+    /* ── Layout ─────────────────────────────────────────── */
+    .page { position: relative; z-index: 1; }
+
+    header {
+      padding: 0 32px;
+      height: 64px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8,12,20,0.75);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo h1 {
+      font-size: 15px;
+      font-weight: 700;
+      background: var(--grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.3px;
+    }
+    .logo p {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .header-pill {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+
+    /* ── Banners ─────────────────────────────────────────── */
     .banner {
-      border-radius: 6px;
-      padding: 10px 14px;
+      border-radius: var(--r-sm);
+      padding: 11px 16px;
       font-size: 13px;
       margin-bottom: 20px;
       border: 1px solid;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: slideDown .3s ease;
     }
-    .banner.warn { background: var(--warn-bg); color: var(--warn); border-color: #5a3d18; }
-    .banner.error { background: #3a1519; color: #ff8a95; border-color: #5a1f26; }
-    .banner.ok { background: var(--ok-bg); color: var(--ok); border-color: #235c33; }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .banner.warn  { background: var(--warn-bg); color: var(--warn); border-color: rgba(245,158,11,.25); }
+    .banner.error { background: var(--err-bg);  color: var(--err);  border-color: rgba(239,68,68,.25); }
+    .banner.ok    { background: var(--ok-bg);   color: var(--ok);   border-color: rgba(16,185,129,.25); }
 
+    /* ── Settings ────────────────────────────────────────── */
     details.settings {
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      margin-bottom: 20px;
+      border-radius: var(--r);
+      margin-bottom: 24px;
+      backdrop-filter: blur(12px);
+      transition: border-color .2s;
     }
+    details.settings:hover { border-color: var(--border-hover); }
     details.settings > summary {
       cursor: pointer;
-      padding: 12px 16px;
+      padding: 13px 18px;
       font-size: 13px;
       font-weight: 600;
-      color: var(--muted);
+      color: var(--muted-lg);
       user-select: none;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      list-style: none;
     }
     details.settings > summary::-webkit-details-marker { display: none; }
     details.settings > summary::after {
-      content: "▸";
-      transition: transform 0.15s;
+      content: "›";
+      font-size: 20px;
+      line-height: 1;
+      transition: transform .2s;
       color: var(--muted);
     }
     details.settings[open] > summary::after { transform: rotate(90deg); }
     .settings-body {
-      padding: 4px 16px 16px;
+      padding: 4px 18px 18px;
       border-top: 1px solid var(--border);
     }
     .settings-status {
-      font-size: 12px;
-      font-weight: 500;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
       color: var(--muted);
+      margin-left: 8px;
     }
     .settings-status.set { color: var(--ok); }
-    .field { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
-    .field label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
-    .field input[type=text], .field input[type=password] {
-      background: var(--panel-2);
+    .field { display: flex; flex-direction: column; gap: 5px; margin-top: 14px; }
+    .field label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      font-weight: 600;
+    }
+    .field input[type=text],
+    .field input[type=password] {
+      background: rgba(0,0,0,.35);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 8px 10px;
-      border-radius: 5px;
+      padding: 9px 12px;
+      border-radius: var(--r-sm);
       font-size: 13px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+      font-family: 'JetBrains Mono', monospace;
+      transition: border-color .2s, box-shadow .2s;
     }
-    .field input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
-    .settings-hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
-    .settings-actions { margin-top: 14px; display: flex; gap: 10px; align-items: center; }
-    .btn-secondary {
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid var(--border);
+    .field input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,212,255,.12);
     }
-    .btn-secondary:hover { color: var(--text); border-color: var(--text); }
+    .settings-hint { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .settings-actions { margin-top: 16px; display: flex; gap: 10px; align-items: center; }
 
-    form.upload {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 18px;
-    }
-    form.upload input[type=file] {
-      flex: 1;
-      color: var(--muted);
-      font-size: 14px;
-    }
-    button {
-      background: var(--accent);
-      color: #0b1220;
+    /* ── Buttons ─────────────────────────────────────────── */
+    .btn {
       border: 0;
-      padding: 10px 18px;
-      border-radius: 6px;
+      padding: 10px 22px;
+      border-radius: var(--r-sm);
       font-weight: 600;
       font-size: 14px;
       cursor: pointer;
+      transition: all .2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Inter', sans-serif;
+      white-space: nowrap;
     }
-    button:hover { filter: brightness(1.08); }
-
-    .result { margin-top: 28px; }
-    .metrics {
-      display: flex;
-      gap: 24px;
-      flex-wrap: wrap;
-      margin-bottom: 20px;
-      font-size: 13px;
+    .btn-primary {
+      background: var(--grad);
+      color: #060a11;
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 28px rgba(0,212,255,.3);
+    }
+    .btn-primary:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: var(--panel);
+      color: var(--muted-lg);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { color: var(--text); border-color: var(--border-hover); }
+    .btn-ghost {
+      background: transparent;
       color: var(--muted);
+      border: 1px solid transparent;
+      padding: 8px 14px;
+      font-size: 13px;
     }
-    .metrics b { color: var(--text); font-weight: 600; }
-    .grid {
+    .btn-ghost:hover { color: var(--text); border-color: var(--border); }
+
+    /* ── Upload zone ─────────────────────────────────────── */
+    .upload-wrap { margin-bottom: 8px; }
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--r);
+      padding: 52px 24px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      transition: border-color .25s, box-shadow .25s;
+    }
+    .drop-zone::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--grad);
+      opacity: 0;
+      transition: opacity .25s;
+      pointer-events: none;
+    }
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      border-style: solid;
+      box-shadow: 0 0 40px rgba(0,212,255,.12), inset 0 0 40px rgba(0,212,255,.04);
+    }
+    .drop-zone:hover::after,
+    .drop-zone.dragover::after { opacity: .04; }
+
+    .drop-idle { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .drop-icon { font-size: 44px; line-height: 1; }
+    .drop-title { font-size: 16px; font-weight: 600; color: var(--text); }
+    .drop-sub { font-size: 13px; color: var(--muted); }
+    .drop-sub .link { color: var(--accent); font-weight: 500; cursor: pointer; }
+    #file-input { display: none; }
+
+    .drop-preview {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .drop-preview.visible { display: flex; }
+    .preview-thumb {
+      max-height: 200px;
+      max-width: 100%;
+      border-radius: var(--r-sm);
+      object-fit: contain;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+    }
+    .preview-meta {
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted-lg);
+    }
+
+    .upload-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    /* ── Spinner ─────────────────────────────────────────── */
+    .spin {
+      width: 15px; height: 15px;
+      border: 2px solid rgba(6,10,17,.35);
+      border-top-color: #060a11;
+      border-radius: 50%;
+      animation: rotating .7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes rotating { to { transform: rotate(360deg); } }
+
+    /* ── Result ──────────────────────────────────────────── */
+    .result { margin-top: 44px; animation: fadeUp .4s ease; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+    }
+
+    /* Risk badge */
+    .risk {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .4px;
+      border: 1px solid;
+      text-transform: uppercase;
+    }
+    .risk-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      animation: dot-pulse 2s ease-in-out infinite;
+    }
+    @keyframes dot-pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:.55; transform:scale(.75); }
+    }
+    .risk.clean      { background: var(--ok-bg);   color: var(--ok);   border-color: rgba(16,185,129,.3); }
+    .risk.clean      .risk-dot { background: var(--ok); }
+    .risk.suspicious { background: var(--warn-bg); color: var(--warn); border-color: rgba(245,158,11,.3); }
+    .risk.suspicious .risk-dot { background: var(--warn); }
+    .risk.forged     { background: var(--err-bg);  color: var(--err);  border-color: rgba(239,68,68,.3); }
+    .risk.forged     .risk-dot { background: var(--err); }
+
+    /* Metric cards */
+    .metrics {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
+      gap: 12px;
+      margin-bottom: 16px;
     }
-    .card {
+    .metric-card {
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: var(--r);
+      padding: 18px 20px;
+      backdrop-filter: blur(12px);
+      transition: border-color .2s, transform .2s;
+    }
+    .metric-card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+    .metric-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .metric-value {
+      font-size: 30px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+    .metric-track {
+      height: 3px;
+      background: rgba(255,255,255,.06);
+      border-radius: 2px;
       overflow: hidden;
     }
-    .card h3 {
-      margin: 0;
-      padding: 10px 14px;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--muted);
-      border-bottom: 1px solid var(--border);
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
+    .metric-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--grad);
+      width: 0;
+      transition: width 1.1s cubic-bezier(.4,0,.2,1);
     }
-    .card img { display: block; width: 100%; height: auto; }
 
-    .explanation {
-      margin-top: 20px;
+    /* Image grid */
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .img-card {
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px 18px;
+      border-radius: var(--r);
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+      cursor: zoom-in;
+      transition: all .25s;
     }
-    .explanation h3 {
-      margin: 0 0 10px;
-      font-size: 13px;
+    .img-card:hover {
+      border-color: rgba(0,212,255,.35);
+      transform: translateY(-3px);
+      box-shadow: 0 16px 48px rgba(0,0,0,.5), 0 0 0 1px rgba(0,212,255,.1);
+    }
+    .img-card-head {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .img-card-title {
+      font-size: 11px;
       font-weight: 600;
       color: var(--muted);
-      letter-spacing: 0.3px;
       text-transform: uppercase;
+      letter-spacing: .8px;
     }
-    .explanation .body { white-space: pre-wrap; font-size: 14px; color: var(--text); }
-    .explanation .err { color: #ff8a95; font-size: 13px; white-space: pre-wrap; }
-    .explanation .hint { color: var(--muted); font-size: 13px; }
+    .img-card-tag {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent);
+      background: rgba(0,212,255,.08);
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+    .img-card-body { overflow: hidden; }
+    .img-card img {
+      display: block;
+      width: 100%;
+      height: auto;
+      transition: transform .35s;
+    }
+    .img-card:hover img { transform: scale(1.04); }
 
-    @media (max-width: 720px) {
-      .grid { grid-template-columns: 1fr; }
+    /* ── Lightbox ─────────────────────────────────────────── */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.92);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(12px);
+      animation: fadeIn .2s ease;
+    }
+    .lightbox.open { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .lightbox img {
+      max-width: 90vw;
+      max-height: 90vh;
+      border-radius: var(--r);
+      box-shadow: 0 0 100px rgba(0,0,0,.9);
+    }
+    .lb-close {
+      position: absolute;
+      top: 20px; right: 24px;
+      color: var(--muted-lg);
+      font-size: 26px;
+      cursor: pointer;
+      line-height: 1;
+      transition: color .15s;
+      background: none;
+      border: none;
+    }
+    .lb-close:hover { color: var(--text); }
+
+    /* ── Explanation ─────────────────────────────────────── */
+    .explanation {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+    }
+    .expl-head {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .expl-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .expl-title::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--purple);
+      flex-shrink: 0;
+    }
+    .expl-body {
+      padding: 20px 22px;
+      display: flex;
+      gap: 18px;
+      align-items: flex-start;
+    }
+    .expl-body-content { flex: 1; min-width: 0; }
+    .expl-hint { font-size: 13px; color: var(--muted); }
+    .expl-err  { font-size: 13px; color: var(--err); }
+    .expl-text { font-size: 14px; color: var(--text); line-height: 1.8; }
+    .expl-text p { margin-bottom: 14px; }
+    .expl-text p:last-child { margin-bottom: 0; }
+
+    .loading-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .loading-spin {
+      width: 14px; height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: rotating .7s linear infinite;
+    }
+    @keyframes msg-cycle {
+      0%   { opacity: 0; transform: translateY(5px); }
+      14%  { opacity: 1; transform: translateY(0);   }
+      78%  { opacity: 1; transform: translateY(0);   }
+      100% { opacity: 0; transform: translateY(-3px); }
+    }
+    .thinking-msg {
+      display: inline-block;
+      animation: msg-cycle 2.2s ease both;
+    }
+
+    /* Typing cursor */
+    .cursor {
+      display: inline-block;
+      width: 2px;
+      height: .9em;
+      background: var(--accent);
+      margin-left: 1px;
+      vertical-align: text-bottom;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── Pixy image ─────────────────────────────────────── */
+    .pixy-img {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Header logo */
+    .pixy-logo-wrap {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: #fff;
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 0 14px rgba(0,212,255,.5), 0 0 28px rgba(139,92,246,.25);
+      animation: pixy-bob 3.5s ease-in-out infinite alternate;
+    }
+    .pixy-logo-wrap img {
+      width: 100%; height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    @keyframes pixy-bob {
+      from { transform: translateY(0);    box-shadow: 0 0 14px rgba(0,212,255,.5), 0 0 28px rgba(139,92,246,.25); }
+      to   { transform: translateY(-3px); box-shadow: 0 0 22px rgba(0,212,255,.7), 0 0 44px rgba(139,92,246,.4); }
+    }
+
+    /* Inline loading Pixy */
+    .pixy-inline {
+      width: 52px; height: 52px;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 0 16px rgba(0,212,255,.5), 0 0 32px rgba(139,92,246,.25);
+      flex-shrink: 0;
+      object-fit: contain;
+      display: block;
+    }
+    @keyframes pixy-shake {
+      0%,100% { transform: rotate(0deg) translateY(0); }
+      20%      { transform: rotate(-5deg) translateY(-2px); }
+      50%      { transform: rotate(4deg) translateY(1px); }
+      80%      { transform: rotate(-3deg) translateY(-1px); }
+    }
+    .pixy-inline.shaking {
+      animation: pixy-shake 1.6s ease-in-out infinite;
+    }
+    @keyframes pixy-jump {
+      0%   { transform: translateY(0); }
+      22%  { transform: translateY(-14px); }
+      40%  { transform: translateY(0); }
+      62%  { transform: translateY(-10px); }
+      80%  { transform: translateY(0); }
+      100% { transform: translateY(0); }
+    }
+    .pixy-inline.jumping {
+      animation: pixy-jump .65s ease-in-out forwards;
+    }
+
+    .thinking-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+    }
+
+    /* ── Responsive ──────────────────────────────────────── */
+    @media (max-width: 780px) {
+      .image-grid { grid-template-columns: 1fr; }
+      .metrics    { grid-template-columns: 1fr 1fr; }
+      header { padding: 0 16px; }
+      main   { padding: 28px 16px 60px; }
+      .header-pill { display: none; }
+    }
+    @media (max-width: 480px) {
+      .metrics { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>AI Forgery Localization</h1>
-    <p>Upload an image; SwinSeg highlights regions it believes are AI-generated. Optionally, an LLM describes what it sees.</p>
-  </header>
-  <main>
-    {% if not has_checkpoint %}
-    <div class="banner warn">
-      No trained checkpoint found. Results will be meaningless until
-      <code>AI_Detection/Mask_Model/best_seg.pth</code> exists.
-    </div>
-    {% endif %}
+  <!-- Ambient background -->
+  <div class="bg-layer">
+    <div class="bg-grid"></div>
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+  </div>
 
-    {% if settings_saved %}
-    <div class="banner ok">Settings saved.</div>
-    {% endif %}
+  <div class="page">
+    <header>
+      <div class="logo">
+        <div class="pixy-logo-wrap">
+          <img src="{{ url_for('static', filename='Pixy.png') }}" alt="Pixy" class="pixy-img" />
+        </div>
+        <div>
+          <h1>Pixy</h1>
+          <p>A tiny digital spirit</p>
+        </div>
+      </div>
+      <div class="header-pill">v4 · DCT + Swin-Transformer</div>
+    </header>
 
-    {% if error %}
-    <div class="banner error">{{ error }}</div>
-    {% endif %}
+    <main>
+      {% if not has_checkpoint %}
+      <div class="banner warn">
+        ⚠ No checkpoint found — results will be meaningless until
+        <code>checkpoints/best_seg_ft.pth</code> exists.
+      </div>
+      {% endif %}
 
-    <details class="settings" {% if not settings.api_key_set %}open{% endif %}>
-      <summary>
-        <span>LLM settings
-          <span class="settings-status {% if settings.api_key_set %}set{% endif %}">
-            {% if settings.api_key_set %}· key {{ settings.api_key_masked }} · {{ settings.model }}{% else %}· not configured{% endif %}
-          </span>
-        </span>
-      </summary>
-      <div class="settings-body">
-        <form method="POST" action="{{ url_for('update_settings') }}">
-          <div class="field">
-            <label for="api_key">API key</label>
-            <input type="password" name="api_key" id="api_key" autocomplete="off"
-                   placeholder="{% if settings.api_key_set %}leave blank to keep {{ settings.api_key_masked }}{% else %}sk-…{% endif %}" />
-            <div class="settings-hint">Stored locally in <code>web/config.json</code> (gitignored). Blank = keep existing.</div>
+      {% if settings_saved %}
+      <div class="banner ok">✓ Settings saved.</div>
+      {% endif %}
+
+      {% if error %}
+      <div class="banner error">✕ {{ error }}</div>
+      {% endif %}
+
+      <!-- Upload -->
+      <div class="upload-wrap">
+        <form id="upload-form" method="POST" enctype="multipart/form-data">
+          <input type="file" id="file-input" name="image" accept="image/*" required />
+          <div class="drop-zone" id="drop-zone">
+            <div class="drop-idle" id="drop-idle">
+              <div class="drop-icon">⬆</div>
+              <div class="drop-title">Give your image to Pixy</div>
+              <div class="drop-sub">
+                or <span class="link" id="browse-link">browse files</span>
+                &nbsp;·&nbsp; JPEG / PNG / WebP / BMP &nbsp;·&nbsp; max 10 MB
+              </div>
+            </div>
+            <div class="drop-preview" id="drop-preview">
+              <img class="preview-thumb" id="preview-thumb" src="" alt="preview" />
+              <div class="preview-meta" id="preview-meta"></div>
+            </div>
           </div>
-          <div class="field">
-            <label for="base_url">Base URL</label>
-            <input type="text" name="base_url" id="base_url" value="{{ settings.base_url }}" />
-          </div>
-          <div class="field">
-            <label for="model">Model</label>
-            <input type="text" name="model" id="model" value="{{ settings.model }}" />
-            <div class="settings-hint">Whatever the endpoint accepts (e.g. <code>claude-sonnet-4-5</code>, <code>qwen3-coder-plus</code>).</div>
-          </div>
-          <div class="settings-actions">
-            <button type="submit">Save settings</button>
-            {% if settings.api_key_set %}
-            <button type="submit" name="clear_key" value="1" class="btn-secondary">Clear key</button>
-            {% endif %}
+          <div class="upload-actions">
+            <button type="submit" class="btn btn-primary" id="analyze-btn" disabled>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              Ask Pixy to use its magic
+            </button>
+            <button type="button" class="btn btn-ghost" id="clear-btn" style="display:none" onclick="clearUpload()">
+              Clear
+            </button>
           </div>
         </form>
       </div>
-    </details>
 
-    <form class="upload" method="POST" enctype="multipart/form-data">
-      <input type="file" name="image" accept="image/*" required />
-      <button type="submit">Analyze</button>
-    </form>
+      <!-- Result -->
+      {% if result %}
+      <div class="result" id="result-section">
+        <div class="result-header">
+          <div class="section-label">What Pixy perceived</div>
+          {% set pct = result.forged_ratio * 100 %}
+          {% if pct < 5 %}
+            <div class="risk clean"><div class="risk-dot"></div>Clean</div>
+          {% elif pct < 25 %}
+            <div class="risk suspicious"><div class="risk-dot"></div>Suspicious</div>
+          {% else %}
+            <div class="risk forged"><div class="risk-dot"></div>Forged</div>
+          {% endif %}
+        </div>
 
-    {% if result %}
-    <div class="result">
-      <div class="metrics">
-        <span>Max score: <b>{{ "%.3f"|format(result.max_score) }}</b></span>
-        <span>Mean score: <b>{{ "%.3f"|format(result.mean_score) }}</b></span>
-        <span>Forged area (thr 0.5): <b>{{ "%.1f%%"|format(result.forged_ratio * 100) }}</b></span>
-      </div>
-      <div class="grid">
-        <div class="card">
-          <h3>Original (512×512)</h3>
-          <img src="data:image/png;base64,{{ result.original }}" alt="original" />
+        <div class="metrics">
+          <div class="metric-card">
+            <div class="metric-label">Max Score</div>
+            <div class="metric-value" data-final="{{ '%.3f'|format(result.max_score) }}">0.000</div>
+            <div class="metric-track">
+              <div class="metric-fill" data-pct="{{ (result.max_score * 100)|int }}"></div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Mean Score</div>
+            <div class="metric-value" data-final="{{ '%.3f'|format(result.mean_score) }}">0.000</div>
+            <div class="metric-track">
+              <div class="metric-fill" data-pct="{{ (result.mean_score * 100)|int }}"></div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Forged Area</div>
+            <div class="metric-value" data-final="{{ '%.1f'|format(result.forged_ratio * 100) }}%" data-is-pct="1">0.0%</div>
+            <div class="metric-track">
+              <div class="metric-fill" data-pct="{{ [((result.forged_ratio * 100)|int), 100]|min }}"></div>
+            </div>
+          </div>
         </div>
-        <div class="card">
-          <h3>Heatmap</h3>
-          <img src="data:image/png;base64,{{ result.heatmap }}" alt="heatmap" />
-        </div>
-        <div class="card">
-          <h3>Overlay</h3>
-          <img src="data:image/png;base64,{{ result.overlay }}" alt="overlay" />
-        </div>
-      </div>
 
-      <div class="explanation" id="explanation-panel">
-        <h3>AI Explanation</h3>
-        {% if settings.api_key_set %}
-        <button id="explain-btn" onclick="generateExplanation('{{ result_id }}')">Generate Explanation</button>
-        {% else %}
-        <div class="hint">Configure an API key in LLM settings above to enable.</div>
-        {% endif %}
-        <div id="explanation-content" style="margin-top:12px"></div>
+        <div class="image-grid">
+          <div class="img-card" onclick="openLightbox('data:image/png;base64,{{ result.original }}')">
+            <div class="img-card-head">
+              <div class="img-card-title">Original</div>
+              <div class="img-card-tag">512×512</div>
+            </div>
+            <div class="img-card-body">
+              <img src="data:image/png;base64,{{ result.original }}" alt="original" />
+            </div>
+          </div>
+          <div class="img-card" onclick="openLightbox('data:image/png;base64,{{ result.heatmap }}')">
+            <div class="img-card-head">
+              <div class="img-card-title">Heatmap</div>
+              <div class="img-card-tag">JET</div>
+            </div>
+            <div class="img-card-body">
+              <img src="data:image/png;base64,{{ result.heatmap }}" alt="heatmap" />
+            </div>
+          </div>
+          <div class="img-card" onclick="openLightbox('data:image/png;base64,{{ result.overlay }}')">
+            <div class="img-card-head">
+              <div class="img-card-title">Overlay</div>
+              <div class="img-card-tag">55 / 45</div>
+            </div>
+            <div class="img-card-body">
+              <img src="data:image/png;base64,{{ result.overlay }}" alt="overlay" />
+            </div>
+          </div>
+        </div>
+
+        <div class="explanation">
+          <div class="expl-head">
+            <div class="expl-title">Forensic Analysis</div>
+            {% if settings.api_key_set %}
+            <button class="btn btn-secondary" id="explain-btn"
+                    onclick="generateExplanation('{{ result_id }}')"
+                    style="padding:7px 16px;font-size:13px;">
+              Ask Pixy
+            </button>
+            {% endif %}
+          </div>
+          <div class="expl-body">
+            <img id="pixy-inline" src="{{ url_for('static', filename='Pixy.png') }}"
+                 class="pixy-img pixy-inline" alt="Pixy" />
+            <div class="expl-body-content">
+              {% if not settings.api_key_set %}
+              <div class="expl-hint">Configure an API key in LLM Settings above to enable forensic analysis.</div>
+              {% else %}
+              <div class="expl-hint" id="expl-idle">Ask for Pixy's opinion.</div>
+              {% endif %}
+              <div id="expl-content" style="display:none"></div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-    {% endif %}
+      {% endif %}
+    </main>
+  </div>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <button class="lb-close" onclick="closeLightbox()">✕</button>
+    <img id="lb-img" src="" alt="" onclick="event.stopPropagation()" />
+  </div>
+
 
   <script>
+    // ── Drop zone ────────────────────────────────────────────
+    const dropZone   = document.getElementById('drop-zone');
+    const fileInput  = document.getElementById('file-input');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const clearBtn   = document.getElementById('clear-btn');
+    const dropIdle   = document.getElementById('drop-idle');
+    const dropPrev   = document.getElementById('drop-preview');
+    const prevThumb  = document.getElementById('preview-thumb');
+    const prevMeta   = document.getElementById('preview-meta');
+
+    document.getElementById('browse-link').addEventListener('click', e => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    ['dragenter','dragover'].forEach(ev =>
+      dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); })
+    );
+    ['dragleave','drop'].forEach(ev =>
+      dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); })
+    );
+    dropZone.addEventListener('drop', e => {
+      const f = e.dataTransfer.files[0];
+      if (f) applyFile(f);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) applyFile(fileInput.files[0]);
+    });
+
+    function applyFile(file) {
+      const reader = new FileReader();
+      reader.onload = e => { prevThumb.src = e.target.result; };
+      reader.readAsDataURL(file);
+
+      prevMeta.textContent = file.name + '  ·  ' + (file.size / 1024).toFixed(0) + ' KB';
+      dropIdle.style.display = 'none';
+      dropPrev.classList.add('visible');
+
+      // Sync to real file input
+      try {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+      } catch (_) {}
+
+      analyzeBtn.disabled = false;
+      clearBtn.style.display = '';
+    }
+
+    function clearUpload() {
+      dropIdle.style.display = '';
+      dropPrev.classList.remove('visible');
+      prevThumb.src = '';
+      fileInput.value = '';
+      analyzeBtn.disabled = true;
+      clearBtn.style.display = 'none';
+    }
+
+    document.getElementById('upload-form').addEventListener('submit', () => {
+      analyzeBtn.disabled = true;
+      analyzeBtn.innerHTML = '<div class="spin"></div> Analyzing…';
+    });
+
+    // ── Metric counters ──────────────────────────────────────
+    function animateMetrics() {
+      document.querySelectorAll('.metric-value[data-final]').forEach(el => {
+        const raw   = el.dataset.final.replace('%', '');
+        const isPct = !!el.dataset.isPct;
+        const target = parseFloat(raw);
+        const dec    = isPct ? 1 : 3;
+        const t0     = performance.now();
+        const dur    = 1100;
+        (function step(now) {
+          const p = Math.min((now - t0) / dur, 1);
+          const e = 1 - Math.pow(1 - p, 3);
+          el.textContent = (target * e).toFixed(dec) + (isPct ? '%' : '');
+          if (p < 1) requestAnimationFrame(step);
+          else el.textContent = el.dataset.final;
+        })(t0);
+      });
+      document.querySelectorAll('.metric-fill[data-pct]').forEach(el => {
+        requestAnimationFrame(() => {
+          el.style.width = Math.min(parseInt(el.dataset.pct), 100) + '%';
+        });
+      });
+    }
+
+    if (document.getElementById('result-section')) animateMetrics();
+
+    // ── Lightbox ─────────────────────────────────────────────
+    function openLightbox(src) {
+      document.getElementById('lb-img').src = src;
+      document.getElementById('lightbox').classList.add('open');
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('open');
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+    // ── Thinking messages ────────────────────────────────────
+    const THINKING_MSGS = [
+      '✨ Pixy is awakening…',
+      '🧚 Sprinkling detection dust…',
+      '🌀 Weaving a frequency spell…',
+      '🔮 Gazing into the pixel realm…',
+      '✦ Tracing the brush stroke aura…',
+      '💫 Sniffing out AI enchantments…',
+      '🌟 Interrogating the gradient spirits…',
+      '🧿 Consulting the DCT oracle…',
+      '🪄 Casting edge-integrity charms…',
+      '✨ Reading the hidden noise runes…',
+      '🌙 Hunting synthetic smoothness…',
+      '💜 Summoning forensic evidence…',
+      '🧚 Almost got it — hold still…',
+    ];
+
+    let _thinkTimer = null;
+
+    const THINK_INTERVAL = 2200;
+
+    function startThinking(el) {
+      let idx = 0;
+      const msgEl = el.querySelector('.thinking-msg');
+      function cycle() {
+        idx = (idx + 1) % THINKING_MSGS.length;
+        // Swap text while opacity is 0 (end of previous animation),
+        // then force-restart the keyframe by removing + re-adding the animation.
+        msgEl.style.animation = 'none';
+        msgEl.textContent = THINKING_MSGS[idx];
+        void msgEl.offsetWidth; // trigger reflow so browser resets the animation
+        msgEl.style.animation = '';
+      }
+      _thinkTimer = setInterval(cycle, THINK_INTERVAL);
+    }
+
+    function stopThinking() {
+      if (_thinkTimer) { clearInterval(_thinkTimer); _thinkTimer = null; }
+    }
+
+    // ── Explanation ──────────────────────────────────────────
     async function generateExplanation(resultId) {
-      const btn = document.getElementById('explain-btn');
-      const content = document.getElementById('explanation-content');
+      const btn     = document.getElementById('explain-btn');
+      const content = document.getElementById('expl-content');
+      const idle    = document.getElementById('expl-idle');
+
       btn.disabled = true;
-      btn.textContent = 'Generating…';
-      content.innerHTML = '<div class="hint">Calling vision model, please wait…</div>';
+      btn.textContent = '…';
+      if (idle) idle.style.display = 'none';
+      content.style.display = 'block';
+      content.innerHTML = `<div class="loading-row">
+        <span class="thinking-msg">${THINKING_MSGS[0]}</span>
+      </div>`;
+      document.getElementById('pixy-inline').classList.add('shaking');
+      startThinking(content);
+
       try {
         const resp = await fetch('/explain', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({result_id: resultId})
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ result_id: resultId })
         });
         const data = await resp.json();
-        if (data.explanation) {
-          let html = '';
-          if (data.style_warning) {
-            html += `<div class="banner warn" style="margin-bottom:12px">⚠ Style mismatch — prediction may be unreliable: ${data.style_warning}</div>`;
+
+        stopThinking();
+        const pixy = document.getElementById('pixy-inline');
+
+        const showResult = () => {
+          if (pixy) pixy.classList.remove('jumping');
+          if (data.explanation) {
+            let prefix = '';
+            if (data.style_warning) {
+              prefix = `<div class="banner warn" style="margin-bottom:16px">
+                Emm… I'm not quite familiar with this style — ${data.style_warning}. My reading might not be fully reliable here.
+              </div>`;
+            }
+            content.innerHTML = prefix + '<div class="expl-text" id="typed-out"></div>';
+            btn.style.display = 'none';
+            const paras = data.explanation.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
+            typeParas(document.getElementById('typed-out'), paras);
+          } else {
+            content.innerHTML = `<div class="expl-err">✕ ${data.error || 'Unknown error'}</div>`;
+            btn.disabled = false;
+            btn.textContent = 'Retry';
           }
-          html += `<div class="body">${data.explanation}</div>`;
-          content.innerHTML = html;
-          btn.style.display = 'none';
+        };
+
+        if (pixy) {
+          pixy.classList.remove('shaking');
+          pixy.classList.add('jumping');
+          pixy.addEventListener('animationend', showResult, { once: true });
         } else {
-          content.innerHTML = `<div class="err">${data.error || 'Unknown error'}</div>`;
-          btn.disabled = false;
-          btn.textContent = 'Retry';
+          showResult();
         }
       } catch (e) {
-        content.innerHTML = `<div class="err">Request failed: ${e.message}</div>`;
+        stopThinking();
+        document.getElementById('pixy-inline')?.classList.remove('shaking');
+        content.innerHTML = `<div class="expl-err">✕ Request failed: ${e.message}</div>`;
         btn.disabled = false;
         btn.textContent = 'Retry';
       }
     }
+
+    function typeParas(container, paras) {
+      let pi = 0, ci = 0, el = null;
+      function tick() {
+        if (pi >= paras.length) return;
+        if (!el) { el = document.createElement('p'); container.appendChild(el); }
+        const text = paras[pi];
+        if (ci < text.length) {
+          el.textContent = text.slice(0, ++ci);
+          setTimeout(tick, 11);
+        } else {
+          pi++; ci = 0; el = null;
+          if (pi < paras.length) setTimeout(tick, 110);
+        }
+      }
+      tick();
+    }
   </script>
-  </main>
 </body>
 </html>
