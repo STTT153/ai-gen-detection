@@ -45,8 +45,8 @@ ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/bmp"}
 
 DEFAULT_CONFIG = {
     "api_key": "",
-    "base_url": "https://www.fucheers.top",
-    "model": "claude-sonnet-4-6",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "qwen3.6-plus",
 }
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")

@@ -1,11 +1,11 @@
-"""Client for an Anthropic-compatible LLM endpoint with vision support.
+"""Client for a DashScope-compatible (OpenAI format) vision LLM endpoint.
 
-Sends the original image and heatmap overlay (base64 PNG) together with
+Sends the original image and heatmap overlay (base64 JPEG) together with
 SwinSeg's detection statistics to a multimodal model for forensic analysis.
 """
 from __future__ import annotations
 
-import anthropic
+import openai
 
 SYSTEM_PROMPT = """You are a forensic analyst for AI art fraud detection. The tool you are assisting is SwinSeg, a pixel-level segmentation model that detects AI-generated regions in digital illustrations.
 
@@ -35,11 +35,12 @@ Keep the forensic description under 150 words."""
 
 def _user_text(mean_score: float, forged_ratio: float) -> str:
     return (
-        f"Image 1 is the original artwork. Image 2 is the heatmap overlay (blue=hand-drawn, red/yellow=AI-generated).\n\n"
+        "Image 1 is the original artwork. Image 2 is the heatmap overlay "
+        "(blue=hand-drawn, red/yellow=AI-generated).\n\n"
         f"Detection statistics:\n"
         f"- mean score: {mean_score:.3f}\n"
         f"- forged_ratio (pixels > 0.5): {forged_ratio * 100:.1f}%\n\n"
-        f"Describe what you observe about the AI-suspected regions."
+        "Describe what you observe about the AI-suspected regions."
     )
 
 
@@ -63,28 +64,29 @@ def explain(
     Returns (explanation, style_warning). style_warning is None if the image
     style matches the training domain.
     """
-    client = anthropic.Anthropic(api_key=api_key, base_url=base_url, timeout=timeout)
-    content = [
-        {
-            "type": "image",
-            "source": {"type": "base64", "media_type": "image/jpeg", "data": orig_b64},
-        },
-        {
-            "type": "image",
-            "source": {"type": "base64", "media_type": "image/jpeg", "data": overlay_b64},
-        },
-        {
-            "type": "text",
-            "text": _user_text(mean_score, forged_ratio),
-        },
-    ]
-    msg = client.messages.create(
+    client = openai.OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
+    msg = client.chat.completions.create(
         model=model,
         max_tokens=max_tokens,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": content}],
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{orig_b64}"},
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{overlay_b64}"},
+                    },
+                    {"type": "text", "text": _user_text(mean_score, forged_ratio)},
+                ],
+            },
+        ],
     )
-    raw = "\n".join(b.text for b in msg.content if getattr(b, "type", None) == "text").strip()
+    raw = (msg.choices[0].message.content or "").strip()
 
     if raw.startswith(_STYLE_WARNING_TOKEN):
         first_line, _, rest = raw.partition("\n")
