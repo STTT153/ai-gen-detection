@@ -61,7 +61,7 @@ SwinSeg is a U-Net-style segmentation model built on a Swin Transformer backbone
 
 **Loss:** Dice loss + Focal loss (α=0.25, γ=2.0) with 1:1 balanced sampling across forgery directions.
 
-**Training split:** 280 train / 40 val / 90 test samples, balanced per forgery type.
+**Training split:** 3000 train / 400 val / 400 test samples, balanced per forgery type.
 
 ## Web Application
 
@@ -138,3 +138,12 @@ python web/test_concurrent.py    # standalone with printed throughput report
 ```
 
 ## Reference
+Zhu, Mingjian, et al. “Genimage: A million-scale benchmark for detecting ai-generated image.”Advances in Neural Information Processing Systems 36 (2023): 77771-77782.
+
+Epstein, David C., et al. “Online detection of ai-generated images.” Proceedings of the IEEE/CVFinternational conference on computer vision. 2023.
+
+Farid, Hany. “Creating, using, misusing, and detecting deep fakes.” Journal of Online Trust andSafety 1.4 (2022).
+
+Chenyang Zhu, et al. “AnimeDL-2M: Million-Scale AI-Generated Anime ImageDetection and Localization in Diffusion Era.”(2025)
+
+Rombach, R., Blattmann, A., Lorenz, D., Esser, P., & Ommer, B. (2022). High-resolution image synthesis with latent diffusion models. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (pp. 10684-10695).
