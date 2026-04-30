@@ -1,6 +1,6 @@
 # Web Demo
 
-Flask server that exposes the SwinSeg forgery-localization model as an upload-and-visualize web app.
+Flask server that exposes the SwinSeg forgery-localization model as an upload-and-visualize web app, with an optional vision-LLM forensic explanation powered by "Pixy".
 
 ## Setup
 
@@ -12,11 +12,9 @@ source web/venv/bin/activate
 pip install -r web/requirements.txt
 ```
 
-A trained checkpoint at `model/checkpoints/best_seg_ft.pth` is expected. Without it the server still runs but shows a warning banner and produces meaningless heatmaps — train first with `python model/mask_train_model.py`.
+A trained checkpoint is expected at `model/checkpoints/best_seg.pth`. Without it the server still starts but shows a warning banner and produces meaningless heatmaps — train first with `python model/v4_train.py`.
 
 ## Run
-
-### Development
 
 ```bash
 source web/venv/bin/activate
@@ -25,64 +23,84 @@ python web/app.py
 
 Opens at http://localhost:8000.
 
-### Production (recommended)
-
-Use gunicorn with a single process and a thread pool so the model is loaded once and requests are handled concurrently:
-
-```bash
-source web/venv/bin/activate
-gunicorn -w 1 -k gthread --threads 4 -b 0.0.0.0:8000 --chdir web app:app
-```
-
-| Flag | Value | Reason |
-|---|---|---|
-| `-w 1` | 1 worker process | Model loaded once; avoids duplicating GPU memory |
-| `-k gthread --threads 4` | gthread worker, 4 threads | Concurrent requests; I/O (LLM calls) overlaps while inference is serialized |
-| `--chdir web` | change into web/ before starting | Resolves `app:app` and `config.json` correctly |
-
 ## Configuration
 
-| Env var | Default | Purpose |
+### Environment variables
+
+| Variable | Default | Purpose |
 |---|---|---|
-| `PORT` | `8000` | HTTP port (dev server only) |
-| `SWINSEG_CKPT` | `model/checkpoints/best_seg_ft.pth` | Model checkpoint path |
+| `PORT` | `8000` | HTTP listen port |
+| `SWINSEG_CKPT` | `model/checkpoints/best_seg.pth` | Model checkpoint path |
 
-LLM credentials (API key, endpoint, model name) are stored in `web/config.json` (gitignored) and can be set via the Settings panel in the UI.
+### LLM credentials
 
-Upload limits: 10 MB, MIME types `image/jpeg|png|webp|bmp`.
+Stored in `web/config.json` (gitignored). Editable at runtime via the **Settings** panel in the UI without restarting the server.
+
+| Field | Default |
+|---|---|
+| `api_key` | _(empty)_ |
+| `base_url` | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| `model` | `qwen3.6-plus` |
+
+Upload limits: 10 MB max, accepted MIME types: `image/jpeg`, `image/png`, `image/webp`, `image/bmp`.
 
 ## Device selection
-
-The server picks the best available compute device automatically:
 
 ```
 CUDA → MPS (Apple Silicon) → CPU
 ```
 
-On an M-series Mac the model runs on MPS (Metal), which uses the built-in GPU cores and is significantly faster than CPU. No configuration required.
+Picked automatically at startup. No configuration required.
 
 ## How it works
 
-[app.py](app.py) imports `SwinSeg` from `model/v4_train.py` and runs the same preprocessing pipeline used during training: resize to 512×512, compute a log-normalised DCT channel, concatenate with ImageNet-normalised RGB to form a 4-channel tensor.
+### Inference pipeline
 
-A `threading.Lock` (`_model_lock`) serialises access to the model so concurrent requests don't race on the GPU/MPS context. Preprocessing, image encoding, and LLM calls run in parallel across threads.
+1. Upload is validated (MIME type + size), then decoded with Pillow.
+2. [app.py](app.py) resizes the image to 512×512, computes a log-normalised grayscale DCT channel, and concatenates it with ImageNet-normalised RGB to form a 4-channel tensor — matching the training pipeline exactly.
+3. SwinSeg (imported from `model/v4_train.py`) produces a per-pixel fake-probability map via sigmoid.
+4. Three visuals are rendered and returned inline as base64 PNG: the original (512×512), a JET-colormap heatmap, and a blended overlay (55% original / 45% heatmap).
+5. Metrics computed: `max_score`, `mean_score`, `forged_ratio` (fraction of pixels > 0.5).
 
-Uploads stream through memory; results render as base64 PNGs inline — nothing is persisted to disk.
+### Concurrency
 
-## Running the concurrent load test
+A `threading.Lock` (`_model_lock`) serialises GPU/MPS access inside `infer()`. Flask runs in threaded mode so preprocessing, image encoding, and LLM calls overlap across concurrent requests while inference is queued.
+
+Results are held in an in-memory LRU cache (10 entries). Nothing is persisted to disk.
+
+### LLM explanation (`/explain`)
+
+Triggered by the **Ask Pixy** button after inference. The server calls a DashScope-hosted vision model (OpenAI-compatible API) with:
+
+- The original image (base64 JPEG, 512×512)
+- The heatmap overlay (base64 JPEG, 512×512)
+- Numeric stats: `mean_score` and `forged_ratio`
+
+The model responds as **Pixy** — a forensic fairy spirit persona specialised in anime/pixiv-style digital illustrations. Her tone adapts to the verdict: delighted for clean hand-drawn art, smug when catching a small fake, cautious for ambiguous results, indignant for heavily AI-generated images.
+
+> **Domain note:** Pixy is trained exclusively on anime/pixiv-style illustrations. Images outside this domain (photos, realistic art, 3D renders, etc.) trigger a `[STYLE_WARNING]` prefix in the response, surfaced as a banner in the UI.
+
+LLM responses are cached per image SHA-256 (up to 50 entries) to avoid redundant API calls when the same image is re-uploaded.
+
+### API routes
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/` | Home page |
+| `POST` | `/` | Upload image, run inference, render result |
+| `POST` | `/explain` | Fetch Pixy's forensic explanation (JSON) |
+| `POST` | `/settings` | Update LLM credentials |
+| `GET` | `/health` | Health check: `{status, device, checkpoint}` |
+
+## Concurrent load test
 
 ```bash
 source web/venv/bin/activate
 python web/test_concurrent.py
 ```
 
-Starts a local test server with a mocked model (no checkpoint needed), fires requests at 1 / 5 / 10 concurrent workers, and reports latency percentiles and throughput. Also runnable via pytest (configured in `pyproject.toml` at the repo root):
+Spins up a local test server with a mocked model (no checkpoint needed), fires requests at 1 / 5 / 10 concurrent workers, and reports latency percentiles and throughput. Also runnable via pytest:
 
 ```bash
-source web/venv/bin/activate
 python -m pytest
 ```
-
-## Caveat
-
-The model was trained on 512×512 composited portraits (AI→Real and Real→AI). Arbitrary photos outside that distribution will produce unreliable maps even with a good checkpoint — that is a domain limit of the training data, not a server bug.

@@ -1023,6 +1023,15 @@
         stopThinking();
         const pixy = document.getElementById('pixy-inline');
 
+        const CACHE_DELAY_MS = 5000;
+        const delay = data.cached ? CACHE_DELAY_MS : 0;
+        if (delay > 0) {
+          // Resume thinking animation during cache-hit delay so UX feels natural
+          startThinking(content);
+          await new Promise(r => setTimeout(r, delay));
+          stopThinking();
+        }
+
         const showResult = () => {
           if (pixy) pixy.classList.remove('jumping');
           if (data.explanation) {
@@ -1067,10 +1076,10 @@
         const text = paras[pi];
         if (ci < text.length) {
           el.textContent = text.slice(0, ++ci);
-          setTimeout(tick, 11);
+          setTimeout(tick, 30);
         } else {
           pi++; ci = 0; el = null;
-          if (pi < paras.length) setTimeout(tick, 110);
+          if (pi < paras.length) setTimeout(tick, 200);
         }
       }
       tick();

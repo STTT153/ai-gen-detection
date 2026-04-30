@@ -5,6 +5,7 @@ and optionally forwards the result to an Anthropic-compatible LLM (Bailian)
 for a natural-language explanation.
 """
 import base64
+import hashlib
 import io
 import json
 import logging
@@ -102,14 +103,44 @@ def load_model():
 MODEL, HAS_CHECKPOINT = load_model()
 _model_lock = threading.Lock()
 
+class LRUCache:
+    """Thread-safe LRU cache backed by OrderedDict."""
+
+    def __init__(self, capacity: int) -> None:
+        self._cap = capacity
+        self._cache: OrderedDict = OrderedDict()
+        self._lock = threading.Lock()
+
+    def get(self, key: str):
+        with self._lock:
+            if key not in self._cache:
+                return None
+            self._cache.move_to_end(key)
+            return self._cache[key]
+
+    def put(self, key: str, value) -> None:
+        with self._lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)
+            self._cache[key] = value
+            if len(self._cache) > self._cap:
+                self._cache.popitem(last=False)
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._cache)
+
+
 _result_cache: OrderedDict[str, dict] = OrderedDict()
-_CACHE_MAX = 10
+_RESULT_CACHE_MAX = 10
+
+_llm_cache: LRUCache = LRUCache(50)
 
 
 def _cache_put(data: dict) -> str:
     rid = str(uuid.uuid4())
     _result_cache[rid] = data
-    if len(_result_cache) > _CACHE_MAX:
+    if len(_result_cache) > _RESULT_CACHE_MAX:
         _result_cache.popitem(last=False)
     return rid
 
@@ -206,11 +237,13 @@ def index():
         return render_template("index.html", **_view_ctx(cfg, error=f"Unsupported image type: {file.mimetype}")), 400
 
     try:
-        pil_img = Image.open(file.stream)
+        img_bytes = file.read()
+        pil_img = Image.open(io.BytesIO(img_bytes))
         pil_img.load()
     except Exception as e:
         return render_template("index.html", **_view_ctx(cfg, error=f"Could not read image: {e}")), 400
 
+    img_hash = hashlib.sha256(img_bytes).hexdigest()
     x, img_rgb = preprocess(pil_img)
     prob = infer(x)
     result = render_visuals(img_rgb, prob)
@@ -220,6 +253,7 @@ def index():
         "forged_ratio": result["forged_ratio"],
         "orig_b64": result["orig_jpeg"],
         "overlay_b64": result["overlay_jpeg"],
+        "img_hash": img_hash,
     })
 
     return render_template("index.html", **_view_ctx(cfg, result=result, result_id=result_id))
@@ -237,6 +271,13 @@ def explain_route():
     if not cached:
         return jsonify({"error": "Result expired, please re-upload the image"}), 404
 
+    img_hash = cached.get("img_hash")
+    if img_hash:
+        cached_llm = _llm_cache.get(img_hash)
+        if cached_llm:
+            log.info("LLM cache hit for %s", img_hash[:12])
+            return jsonify({**cached_llm, "cached": True})
+
     try:
         explanation, style_warning = llm.explain(
             api_key=cfg["api_key"],
@@ -247,7 +288,11 @@ def explain_route():
             orig_b64=cached["orig_b64"],
             overlay_b64=cached["overlay_b64"],
         )
-        return jsonify({"explanation": explanation, "style_warning": style_warning})
+        result = {"explanation": explanation, "style_warning": style_warning}
+        if img_hash:
+            _llm_cache.put(img_hash, result)
+            log.info("LLM result cached for %s (cache size: %d)", img_hash[:12], len(_llm_cache))
+        return jsonify(result)
     except Exception as e:
         log.exception("LLM call failed")
         return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
