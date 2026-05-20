@@ -712,6 +712,13 @@
       </div>
       {% endif %}
 
+      {% if local_llm_override %}
+      <div class="banner ok">
+        ⚡ Local LLM override active — <code>{{ local_llm_override }}</code>.
+        Settings panel is read-only while <code>LOCAL_LLM_BASE_URL</code> is set.
+      </div>
+      {% endif %}
+
       {% if settings_saved %}
       <div class="banner ok">✓ Settings saved.</div>
       {% endif %}

@@ -31,6 +31,17 @@ CHECKPOINT_PATH = Path(
 )
 CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
 
+# When LOCAL_LLM_BASE_URL is set at startup, all LLM calls are routed to the
+# local fine-tuned model instead of the remote API configured in config.json.
+# Example:
+#   LOCAL_LLM_BASE_URL=http://localhost:11434/v1 \
+#   LOCAL_LLM_MODEL=my-finetuned-model \
+#   LOCAL_LLM_API_KEY=ollama \
+#   python web/app.py
+LOCAL_LLM_BASE_URL = os.environ.get("LOCAL_LLM_BASE_URL", "").strip()
+LOCAL_LLM_MODEL    = os.environ.get("LOCAL_LLM_MODEL", "").strip()
+LOCAL_LLM_API_KEY  = os.environ.get("LOCAL_LLM_API_KEY", "local").strip()
+
 sys.path.insert(0, str(AI_DETECTION_DIR))
 from v4_train import SwinSeg  # noqa: E402
 import llm  # noqa: E402
@@ -60,10 +71,20 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 def load_config() -> dict:
     if CONFIG_PATH.exists():
         try:
-            return {**DEFAULT_CONFIG, **json.loads(CONFIG_PATH.read_text())}
+            cfg = {**DEFAULT_CONFIG, **json.loads(CONFIG_PATH.read_text())}
         except json.JSONDecodeError:
             log.warning("config.json is invalid JSON, using defaults")
-    return dict(DEFAULT_CONFIG)
+            cfg = dict(DEFAULT_CONFIG)
+    else:
+        cfg = dict(DEFAULT_CONFIG)
+
+    if LOCAL_LLM_BASE_URL:
+        cfg["base_url"] = LOCAL_LLM_BASE_URL
+        cfg["api_key"] = LOCAL_LLM_API_KEY
+        if LOCAL_LLM_MODEL:
+            cfg["model"] = LOCAL_LLM_MODEL
+
+    return cfg
 
 
 def save_config(cfg: dict) -> None:
@@ -102,6 +123,15 @@ def load_model():
 
 MODEL, HAS_CHECKPOINT = load_model()
 _model_lock = threading.Lock()
+
+if LOCAL_LLM_BASE_URL:
+    log.info(
+        "Local LLM override active — base_url=%s  model=%s",
+        LOCAL_LLM_BASE_URL,
+        LOCAL_LLM_MODEL or "(from config.json)",
+    )
+else:
+    log.info("LLM backend: config.json / Settings panel")
 
 class LRUCache:
     """Thread-safe LRU cache backed by OrderedDict."""
@@ -214,6 +244,7 @@ def _view_ctx(cfg: dict, **kw):
             "base_url": cfg.get("base_url", ""),
             "model": cfg.get("model", ""),
         },
+        "local_llm_override": LOCAL_LLM_BASE_URL or None,
         "result": None,
         "result_id": None,
         "error": None,
